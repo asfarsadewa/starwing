@@ -236,7 +236,9 @@ export function buildShip(variant = {}) {
     hip.userData.knee = knee;
     hip.userData.jet = jet;
     hip.rotation.x = -1.55;          // fighter: thigh folded flat aft
-    knee.rotation.x = 1.45;          // shin doubled back under it
+    knee.rotation.x = 3.05;          // shin Z-folded forward under the thigh
+    hip.scale.setScalar(0.55);       // stowed limbs compact into the hull
+    hip.position.y = -0.05;
     ship.add(hip);
     legs.push(hip);
   }
@@ -270,6 +272,8 @@ export function buildShip(variant = {}) {
     shoulder.userData.side = side;
     shoulder.rotation.x = -1.6;      // fighter: arm tucked aft along the belly
     elbow.rotation.x = 0.1;
+    shoulder.scale.setScalar(0.6);   // stowed
+    shoulder.position.y = -0.02;
     ship.add(shoulder);
     arms.push(shoulder);
   }
@@ -367,14 +371,19 @@ export function applyTransform(ship, k) {
   for (const hip of legs) {
     // thigh sweeps from folded-flat-aft to down-forward
     hip.rotation.x = THREE.MathUtils.lerp(-1.55, 0.5, legK);
-    // knee unfolds from doubled-back nacelle to a bent hover stance
-    hip.userData.knee.rotation.x = THREE.MathUtils.lerp(1.45, -0.55, legK);
+    // knee unfolds from the forward Z-fold to a bent hover stance
+    hip.userData.knee.rotation.x = THREE.MathUtils.lerp(3.05, -0.55, legK);
+    // stowed limbs are compacted into the hull; they expand as they deploy
+    hip.scale.setScalar(THREE.MathUtils.lerp(0.55, 1, legK));
+    hip.position.y = THREE.MathUtils.lerp(-0.05, -0.22, legK);
   }
 
   for (const shoulder of arms) {
     shoulder.rotation.x = THREE.MathUtils.lerp(-1.6, 0.25, armK);
     shoulder.rotation.z = shoulder.userData.side * 0.35 * armK; // elbows out, hands in
     shoulder.userData.elbow.rotation.x = THREE.MathUtils.lerp(0.1, 1.15, armK);
+    shoulder.scale.setScalar(THREE.MathUtils.lerp(0.6, 1, armK));
+    shoulder.position.y = THREE.MathUtils.lerp(-0.02, -0.14, armK);
   }
 
   // gunpod leaves the keel and is held forward between the hands
