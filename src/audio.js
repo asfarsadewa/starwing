@@ -22,9 +22,11 @@ const tracks = {
   title: new Audio("/audio/title-bgm.mp3"),
   level: new Audio("/audio/level-bgm.mp3"),
 };
-for (const a of Object.values(tracks)) {
+// level runs hot so it cuts through laser/explosion SFX during play
+const TRACK_VOLUME = { title: 0.55, level: 0.85 };
+for (const [k, a] of Object.entries(tracks)) {
   a.loop = true;
-  a.volume = 0.45;
+  a.volume = TRACK_VOLUME[k];
   a.preload = "auto";
 }
 
@@ -62,11 +64,19 @@ export function ensureMusic() {
 }
 
 // debug/smoke-test breadcrumb
-window.__bgm = () => ({
-  track: currentTrack,
-  paused: currentTrack ? tracks[currentTrack].paused : null,
-  unlocked,
-});
+window.__bgm = () => {
+  const a = currentTrack ? tracks[currentTrack] : null;
+  return {
+    track: currentTrack,
+    unlocked,
+    paused: a?.paused ?? null,
+    readyState: a?.readyState ?? null,
+    networkState: a?.networkState ?? null,
+    error: a?.error ? { code: a.error.code, message: a.error.message } : null,
+    duration: a?.duration ?? null,
+    currentTime: a?.currentTime ?? null,
+  };
+};
 
 // ---------------------------------------------------------------- sampled SFX
 
@@ -119,7 +129,7 @@ function playBuffer(name, vol = 1, rate = 1) {
 
 export function sfxLaser() {
   // slight pitch jitter keeps rapid fire from sounding machine-stamped
-  if (playBuffer("laser", 0.55, 0.94 + Math.random() * 0.12)) return;
+  if (playBuffer("laser", 0.38, 0.94 + Math.random() * 0.12)) return;
   const c = ensureCtx();
   const t = c.currentTime;
   const osc = c.createOscillator();
