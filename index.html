@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>STARWING // VECTOR SQUADRON</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 L26 28 L16 22 L6 28 Z' fill='%236ef3ff'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -54,6 +55,12 @@
       <div id="reticle-near" class="reticle reticle-near"></div>
 
       <div id="alert" class="alert hidden">⚠ SHIELD CRITICAL ⚠</div>
+
+      <div id="boss-warning" class="boss-warning hidden">⚠ WARNING — CAPITAL SIGNATURE INBOUND ⚠</div>
+      <div id="boss-hud" class="boss-hud hidden">
+        <span class="boss-name">VOIDMAW SIEGE CORE</span>
+        <div class="bar boss-bar"><div id="boss-fill" class="bar-fill"></div></div>
+      </div>
     </div>
 
     <!-- Title screen -->
@@ -79,12 +86,20 @@
       <p id="start-prompt" class="start-prompt">PRESS <b>ENTER</b> OR <b>START</b></p>
     </div>
 
+    <!-- Pilot select screen -->
+    <div id="select-screen" class="screen hidden">
+      <p class="title-kicker">VECTOR SQUADRON ROSTER</p>
+      <h2 class="select-title">SELECT YOUR PILOT</h2>
+      <div id="pilot-cards" class="pilot-cards"><!-- built by main.js --></div>
+      <p class="start-prompt select-hint">◄ ► CHOOSE &nbsp;·&nbsp; <b>ENTER</b> / <b>A</b> LAUNCH</p>
+    </div>
+
     <!-- Game over screen -->
     <div id="gameover-screen" class="screen hidden">
       <h2 class="go-title">SHIP LOST</h2>
       <p class="go-score">FINAL SCORE <span id="final-score">000000</span></p>
       <p class="go-best">BEST <span id="best-score">000000</span></p>
-      <p class="start-prompt">PRESS <b>ENTER</b> OR <b>START</b> TO RE-LAUNCH</p>
+      <p class="start-prompt">PRESS <b>ENTER</b> OR <b>START</b> TO RETURN TO HANGAR</p>
     </div>
   </div>
   <script type="module" src="/src/main.js"></script>

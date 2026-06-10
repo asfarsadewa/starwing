@@ -1,4 +1,6 @@
-// Procedural WebAudio SFX — zero asset files.
+// Audio: BGM via HTMLAudio, SFX via WebAudio.
+// Laser/boost use generated samples (public/sfx/) with procedural fallbacks;
+// the rest are synthesized oscillators/noise.
 
 let ctx = null;
 let master = null;
@@ -14,12 +16,81 @@ function ensureCtx() {
   return ctx;
 }
 
+// ---------------------------------------------------------------- BGM
+
+const tracks = {
+  title: new Audio("/audio/title-bgm.mp3"),
+  level: new Audio("/audio/level-bgm.mp3"),
+};
+for (const a of Object.values(tracks)) {
+  a.loop = true;
+  a.volume = 0.45;
+  a.preload = "auto";
+}
+
+let currentTrack = null;
+let unlocked = false;
+
+export function playMusic(name) {
+  if (currentTrack === name) return;
+  currentTrack = name;
+  for (const [k, a] of Object.entries(tracks)) {
+    if (k === name) {
+      a.currentTime = 0;
+      if (unlocked) a.play().catch(() => {});
+    } else {
+      a.pause();
+    }
+  }
+}
+
 // call once on first user gesture
 export function unlockAudio() {
   ensureCtx();
+  if (!unlocked) {
+    unlocked = true;
+    if (currentTrack) tracks[currentTrack].play().catch(() => {});
+  }
 }
 
+// ---------------------------------------------------------------- sampled SFX
+
+const buffers = {};
+
+export async function loadSfx() {
+  const c = ensureCtx();
+  await Promise.all(
+    [["laser", "/sfx/laser.mp3"], ["boost", "/sfx/boost.mp3"]].map(
+      async ([name, url]) => {
+        try {
+          const data = await fetch(url).then((r) => r.arrayBuffer());
+          buffers[name] = await c.decodeAudioData(data);
+        } catch {
+          // fall back to procedural versions
+        }
+      }
+    )
+  );
+}
+
+function playBuffer(name, vol = 1, rate = 1) {
+  if (!buffers[name]) return false;
+  const c = ensureCtx();
+  const src = c.createBufferSource();
+  src.buffer = buffers[name];
+  src.playbackRate.value = rate;
+  const g = c.createGain();
+  g.gain.value = vol;
+  src.connect(g).connect(master);
+  src.start();
+  return true;
+}
+
+// ---------------------------------------------------------------- SFX
+
 export function sfxLaser() {
+  // slight pitch jitter keeps rapid fire from sounding machine-stamped
+  if (playBuffer("laser", 0.55, 0.94 + Math.random() * 0.12)) return;
   const c = ensureCtx();
   const t = c.currentTime;
   const osc = c.createOscillator();
@@ -32,6 +103,22 @@ export function sfxLaser() {
   osc.connect(gain).connect(master);
   osc.start(t);
   osc.stop(t + 0.14);
+}
+
+export function sfxBoost() {
+  if (playBuffer("boost", 0.8)) return;
+  const c = ensureCtx();
+  const t = c.currentTime;
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(60, t);
+  osc.frequency.exponentialRampToValueAtTime(220, t + 0.5);
+  gain.gain.setValueAtTime(0.3, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+  osc.connect(gain).connect(master);
+  osc.start(t);
+  osc.stop(t + 1);
 }
 
 function noiseBuffer(c, seconds) {
@@ -58,7 +145,6 @@ export function sfxExplosion(big = false) {
   src.connect(filter).connect(gain).connect(master);
   src.start(t);
 
-  // low thump
   const osc = c.createOscillator();
   const og = c.createGain();
   osc.type = "sine";
@@ -116,4 +202,51 @@ export function sfxRoll() {
   osc.connect(gain).connect(master);
   osc.start(t);
   osc.stop(t + 0.4);
+}
+
+export function sfxAlarm() {
+  const c = ensureCtx();
+  const t = c.currentTime;
+  for (let i = 0; i < 3; i++) {
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(520, t + i * 0.5);
+    osc.frequency.setValueAtTime(390, t + i * 0.5 + 0.25);
+    gain.gain.setValueAtTime(0.12, t + i * 0.5);
+    gain.gain.setValueAtTime(0.0001, t + i * 0.5 + 0.45);
+    osc.connect(gain).connect(master);
+    osc.start(t + i * 0.5);
+    osc.stop(t + i * 0.5 + 0.46);
+  }
+}
+
+export function sfxEnemyShot() {
+  const c = ensureCtx();
+  const t = c.currentTime;
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(420, t);
+  osc.frequency.exponentialRampToValueAtTime(110, t + 0.25);
+  gain.gain.setValueAtTime(0.14, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
+  osc.connect(gain).connect(master);
+  osc.start(t);
+  osc.stop(t + 0.28);
+}
+
+export function sfxSelect() {
+  const c = ensureCtx();
+  const t = c.currentTime;
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(440, t);
+  osc.frequency.setValueAtTime(660, t + 0.06);
+  gain.gain.setValueAtTime(0.15, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+  osc.connect(gain).connect(master);
+  osc.start(t);
+  osc.stop(t + 0.2);
 }

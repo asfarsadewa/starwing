@@ -16,9 +16,10 @@ const LASER_MAT = new THREE.MeshBasicMaterial({
 export class LaserPool {
   constructor(scene, size = 40) {
     this.scene = scene;
+    this.material = LASER_MAT.clone();
     this.pool = [];
     for (let i = 0; i < size; i++) {
-      const m = new THREE.Mesh(LASER_GEO, LASER_MAT);
+      const m = new THREE.Mesh(LASER_GEO, this.material);
       m.visible = false;
       scene.add(m);
       this.pool.push({ mesh: m, active: false, vel: new THREE.Vector3() });
@@ -49,6 +50,189 @@ export class LaserPool {
   kill(l) {
     l.active = false;
     l.mesh.visible = false;
+  }
+
+  setColor(color) {
+    this.material.color.set(color);
+  }
+}
+
+// ---------------------------------------------------------------- enemy plasma
+
+const PLASMA_GEO = new THREE.SphereGeometry(0.45, 10, 10);
+const PLASMA_MAT = new THREE.MeshBasicMaterial({
+  color: 0xff4d6e,
+  transparent: true,
+  opacity: 0.95,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+
+export class PlasmaPool {
+  constructor(scene, size = 30) {
+    this.scene = scene;
+    this.pool = [];
+    for (let i = 0; i < size; i++) {
+      const m = new THREE.Mesh(PLASMA_GEO, PLASMA_MAT);
+      m.visible = false;
+      scene.add(m);
+      this.pool.push({ mesh: m, active: false, vel: new THREE.Vector3() });
+    }
+  }
+
+  fire(origin, target, speed = 55) {
+    const slot = this.pool.find((p) => !p.active);
+    if (!slot) return;
+    slot.active = true;
+    slot.mesh.visible = true;
+    slot.mesh.position.copy(origin);
+    slot.vel.copy(target).sub(origin).normalize().multiplyScalar(speed);
+  }
+
+  update(dt) {
+    for (const p of this.pool) {
+      if (!p.active) continue;
+      p.mesh.position.addScaledVector(p.vel, dt);
+      const s = 1 + Math.sin(performance.now() * 0.02) * 0.15;
+      p.mesh.scale.setScalar(s);
+      if (p.mesh.position.z > 16 || p.mesh.position.z < -WORLD_DEPTH) {
+        this.kill(p);
+      }
+    }
+  }
+
+  kill(p) {
+    p.active = false;
+    p.mesh.visible = false;
+  }
+
+  clear() {
+    for (const p of this.pool) this.kill(p);
+  }
+}
+
+// ---------------------------------------------------------------- boss
+
+const BOSS_HULL = new THREE.MeshStandardMaterial({
+  color: 0x3d2433,
+  metalness: 0.7,
+  roughness: 0.35,
+  emissive: 0x8a1230,
+  emissiveIntensity: 0.3,
+  flatShading: true,
+});
+const BOSS_CORE = new THREE.MeshBasicMaterial({
+  color: 0xff2e55,
+  transparent: true,
+  opacity: 0.95,
+  blending: THREE.AdditiveBlending,
+});
+
+export class Boss {
+  constructor(scene) {
+    this.scene = scene;
+    this.group = new THREE.Group();
+
+    const shell = new THREE.Mesh(new THREE.OctahedronGeometry(5, 1), BOSS_HULL);
+    shell.scale.set(1.3, 0.9, 1);
+    this.group.add(shell);
+    this.shell = shell;
+
+    this.core = new THREE.Mesh(new THREE.SphereGeometry(1.7, 16, 16), BOSS_CORE);
+    this.group.add(this.core);
+
+    this.ring = new THREE.Mesh(
+      new THREE.TorusGeometry(7.2, 0.45, 8, 40),
+      BOSS_HULL
+    );
+    this.group.add(this.ring);
+
+    // cannon spikes
+    for (const a of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+      const spikeGeo = new THREE.ConeGeometry(0.7, 3.2, 6);
+      spikeGeo.rotateX(Math.PI / 2);
+      const spike = new THREE.Mesh(spikeGeo, BOSS_HULL);
+      spike.position.set(Math.cos(a) * 7.2, Math.sin(a) * 7.2, -1);
+      this.group.add(spike);
+    }
+
+    const light = new THREE.PointLight(0xff2e55, 30, 40);
+    this.group.add(light);
+
+    this.group.visible = false;
+    scene.add(this.group);
+
+    this.active = false;
+    this.hp = 0;
+    this.maxHp = 1;
+    this.fireTimer = 0;
+    this.flash = 0;
+    this.entranceT = 0;
+  }
+
+  spawn(maxHp) {
+    this.active = true;
+    this.maxHp = maxHp;
+    this.hp = maxHp;
+    this.fireTimer = 2.5;
+    this.entranceT = 0;
+    this.group.visible = true;
+    this.group.position.set(0, 0, -220);
+  }
+
+  update(dt, t, shipPos, plasma) {
+    if (!this.active) return;
+
+    // entrance glide, then hold at combat depth
+    this.entranceT += dt;
+    const targetZ = -58;
+    this.group.position.z = THREE.MathUtils.damp(
+      this.group.position.z, targetZ, 1.2, dt
+    );
+
+    // weave
+    this.group.position.x = Math.sin(t * 0.43) * 10;
+    this.group.position.y = Math.sin(t * 0.61) * 4.5;
+
+    this.ring.rotation.z += dt * 0.7;
+    this.ring.rotation.x = Math.sin(t * 0.5) * 0.3;
+    this.shell.rotation.y += dt * 0.4;
+    this.core.scale.setScalar(1 + Math.sin(t * 6) * 0.12);
+
+    // damage flash decay
+    this.flash = Math.max(0, this.flash - dt * 4);
+    BOSS_HULL.emissiveIntensity = 0.3 + this.flash * 1.2;
+
+    // aimed triple volley once in position
+    if (this.entranceT > 2.5) {
+      this.fireTimer -= dt;
+      if (this.fireTimer <= 0) {
+        // harder volleys as hp drops
+        const rage = 1 - this.hp / this.maxHp;
+        this.fireTimer = THREE.MathUtils.lerp(2.0, 1.0, rage);
+        const origin = this.group.position.clone();
+        origin.z += 4;
+        for (const spread of [-3.5, 0, 3.5]) {
+          const target = new THREE.Vector3(
+            shipPos.x + spread, shipPos.y + spread * 0.4, 0
+          );
+          plasma.fire(origin, target, 55 + rage * 25);
+        }
+        return true; // fired this frame (caller plays sfx)
+      }
+    }
+    return false;
+  }
+
+  hit(dmg) {
+    this.hp -= dmg;
+    this.flash = 1;
+    return this.hp <= 0;
+  }
+
+  despawn() {
+    this.active = false;
+    this.group.visible = false;
   }
 }
 
@@ -152,26 +336,28 @@ export class Spawner {
     this.entities.push({ kind, obj, radius, dead: false });
   }
 
-  update(dt, speed, elapsed) {
-    // spawn cadence ramps up with elapsed time
-    const intensity = Math.min(1, elapsed / 90);
+  update(dt, speed, elapsed, suppressSpawns = false) {
+    if (!suppressSpawns) {
+      // spawn cadence ramps up with elapsed time
+      const intensity = Math.min(1, elapsed / 90);
 
-    this.droneTimer -= dt;
-    if (this.droneTimer <= 0) {
-      this.spawn("drone");
-      this.droneTimer = THREE.MathUtils.lerp(2.4, 0.7, intensity) * (0.6 + Math.random() * 0.8);
-    }
+      this.droneTimer -= dt;
+      if (this.droneTimer <= 0) {
+        this.spawn("drone");
+        this.droneTimer = THREE.MathUtils.lerp(2.4, 0.7, intensity) * (0.6 + Math.random() * 0.8);
+      }
 
-    this.rockTimer -= dt;
-    if (this.rockTimer <= 0) {
-      this.spawn("rock");
-      this.rockTimer = THREE.MathUtils.lerp(1.6, 0.45, intensity) * (0.6 + Math.random() * 0.8);
-    }
+      this.rockTimer -= dt;
+      if (this.rockTimer <= 0) {
+        this.spawn("rock");
+        this.rockTimer = THREE.MathUtils.lerp(1.6, 0.45, intensity) * (0.6 + Math.random() * 0.8);
+      }
 
-    this.ringTimer -= dt;
-    if (this.ringTimer <= 0) {
-      this.spawn("ring");
-      this.ringTimer = 6 + Math.random() * 5;
+      this.ringTimer -= dt;
+      if (this.ringTimer <= 0) {
+        this.spawn("ring");
+        this.ringTimer = 6 + Math.random() * 5;
+      }
     }
 
     for (const e of this.entities) {

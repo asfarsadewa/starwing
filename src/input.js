@@ -43,6 +43,9 @@ function getPad() {
 let prevStart = false;
 let prevRollL = false;
 let prevRollR = false;
+let prevFire = false;
+let prevLeft = false;
+let prevRight = false;
 
 export const input = {
   x: 0,            // -1 .. 1  (left/right)
@@ -50,6 +53,9 @@ export const input = {
   fire: false,
   boost: false,
   start: false,        // pressed this frame (edge)
+  firePressed: false,  // edge — for menu confirm
+  menuLeft: false,     // edge — for menu navigation
+  menuRight: false,    // edge
   rollLeft: false,     // edge
   rollRight: false,    // edge
   padConnected: false,
@@ -100,12 +106,28 @@ export function poll() {
   input.boost = boost;
 
   input.start = startHeld && !prevStart;
+  input.firePressed = fire && !prevFire;
   input.rollLeft = rollLHeld && !prevRollL;
   input.rollRight = rollRHeld && !prevRollR;
 
+  // menu navigation edges from the analog/keyboard x axis (incl. dpad)
+  const pad2 = getPad();
+  let mx = input.x;
+  if (pad2) {
+    if (pad2.buttons[14]?.pressed) mx = -1; // dpad left
+    if (pad2.buttons[15]?.pressed) mx = 1;  // dpad right
+  }
+  const leftHeld = mx < -0.5;
+  const rightHeld = mx > 0.5;
+  input.menuLeft = leftHeld && !prevLeft;
+  input.menuRight = rightHeld && !prevRight;
+
   prevStart = startHeld;
+  prevFire = fire;
   prevRollL = rollLHeld;
   prevRollR = rollRHeld;
+  prevLeft = leftHeld;
+  prevRight = rightHeld;
 
   return input;
 }
