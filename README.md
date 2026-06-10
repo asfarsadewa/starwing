@@ -57,13 +57,26 @@ Gamepad API; on some browsers you must press a button once before the pad is exp
   `public/audio/`, looped via HTMLAudio after the first user gesture.
 - Laser + boost SFX are ElevenLabs-generated samples (`public/sfx/`), played through
   WebAudio buffers with pitch jitter so rapid fire doesn't sound machine-stamped.
+- Voice barks (`public/voice/`) are Gemini TTS (English): per-pilot launch lines and a
+  ship-computer announcer for boss warning / boss kill / game over. The manifest with
+  voices and acting directions lives at `public/voice/voice.manifest.json`.
 - All other SFX (explosions, hits, rings, alarm, menus) are synthesized live with
   WebAudio oscillators and filtered noise.
 
+## Generated art
+
+- Title logo (`public/img/logo.png`): gpt-image-2 chrome key-art, chroma-keyed to alpha.
+- Nebula backdrop (`public/img/nebula.png`): painted starscape on a far plane behind
+  the parallax starfield.
+- Explosion VFX (`public/fx/explosion-atlas.png`): 16-frame 4×4 sprite atlas played as
+  animated billboards (additive, pooled) on kills, collisions, and boss death.
+- Pilot avatars (`public/avatars/`). All generation prompts are kept next to the
+  assets (`*.prompts.jsonl`) for reproducibility.
+
 ## Tech notes
 
-- Ships, boss, particle/nebula textures are all procedural Three.js primitives and
-  canvas-generated textures.
+- Ships, boss, and particle textures are procedural Three.js primitives and
+  canvas-generated textures; hero art assets above are AI-generated bitmaps.
 - Pooled lasers/plasma and a ring-buffer particle system keep allocations out of the
   frame loop.
 - Dev hooks: `?select` opens the hangar, `?autostart[=vega|hex|anvil]` jumps into

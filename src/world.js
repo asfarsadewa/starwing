@@ -22,6 +22,22 @@ export function buildWorld(scene) {
   scene.fog = new THREE.FogExp2(0x060a18, 0.0065);
   scene.background = new THREE.Color(0x04060f);
 
+  // --- painted nebula backdrop, far behind the parallax starfield ---
+  new THREE.TextureLoader().load("/img/nebula.png", (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      fog: false,
+      depthWrite: false,
+      // keep it dim so gameplay reads clearly against it
+      color: 0x8890a8,
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(860, 484), mat);
+    plane.position.set(0, 0, -340);
+    plane.renderOrder = -1;
+    scene.add(plane);
+  });
+
   // --- lights ---
   const key = new THREE.DirectionalLight(0xbfd8ff, 2.4);
   key.position.set(6, 10, 4);

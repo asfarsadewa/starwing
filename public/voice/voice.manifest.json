@@ -1,0 +1,20 @@
+{
+  "id": "starwing_barks",
+  "language": "en",
+  "style": "Short, punchy arcade space-combat voice barks. Energetic, clean delivery, no trailing silence.",
+  "mode": "per_line",
+  "speakers": [
+    { "name": "Vega", "voice": "Kore", "style": "Composed, confident female fighter ace in her 30s. Calm authority." },
+    { "name": "Hex", "voice": "Puck", "style": "Cocky, energetic young male hotshot pilot. Grinning bravado." },
+    { "name": "Anvil", "voice": "Charon", "style": "Massive, gravelly, unshakable male veteran. Slow and heavy." },
+    { "name": "Computer", "voice": "Zephyr", "style": "Calm synthetic ship-computer announcer. Clear, measured, slightly robotic." }
+  ],
+  "lines": [
+    { "speaker": "Vega", "text": "Vega, launching. Stay sharp out there.", "direction": "cool and assured", "file": "bark-vega.wav" },
+    { "speaker": "Hex", "text": "Hex on deck! Try to keep up.", "direction": "cocky grin, fast", "file": "bark-hex.wav" },
+    { "speaker": "Anvil", "text": "Anvil, moving out. Nothing gets through.", "direction": "deep, deliberate, immovable", "file": "bark-anvil.wav" },
+    { "speaker": "Computer", "text": "Warning. Capital signature inbound.", "direction": "urgent but controlled alert", "file": "warning.wav" },
+    { "speaker": "Computer", "text": "Target destroyed. Outstanding flying.", "direction": "satisfied confirmation", "file": "bossdown.wav" },
+    { "speaker": "Computer", "text": "Shield failure. Ejection confirmed.", "direction": "somber, final", "file": "gameover.wav" }
+  ]
+}

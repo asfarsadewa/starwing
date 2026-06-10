@@ -59,18 +59,30 @@ const buffers = {};
 
 export async function loadSfx() {
   const c = ensureCtx();
+  const files = [
+    ["laser", "/sfx/laser.mp3"],
+    ["boost", "/sfx/boost.mp3"],
+    ["voice-vega", "/voice/bark-vega.wav"],
+    ["voice-hex", "/voice/bark-hex.wav"],
+    ["voice-anvil", "/voice/bark-anvil.wav"],
+    ["voice-warning", "/voice/warning.wav"],
+    ["voice-bossdown", "/voice/bossdown.wav"],
+    ["voice-gameover", "/voice/gameover.wav"],
+  ];
   await Promise.all(
-    [["laser", "/sfx/laser.mp3"], ["boost", "/sfx/boost.mp3"]].map(
-      async ([name, url]) => {
-        try {
-          const data = await fetch(url).then((r) => r.arrayBuffer());
-          buffers[name] = await c.decodeAudioData(data);
-        } catch {
-          // fall back to procedural versions
-        }
+    files.map(async ([name, url]) => {
+      try {
+        const data = await fetch(url).then((r) => r.arrayBuffer());
+        buffers[name] = await c.decodeAudioData(data);
+      } catch {
+        // missing/undecodable assets fall back to procedural or silence
       }
-    )
+    })
   );
+}
+
+export function playVoice(name) {
+  playBuffer(`voice-${name}`, 1.0);
 }
 
 function playBuffer(name, vol = 1, rate = 1) {

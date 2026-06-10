@@ -4,8 +4,9 @@ import { buildShip, animateShip } from "./ship.js";
 import { buildWorld, updateWorld } from "./world.js";
 import { LaserPool, Spawner, ParticleBurst, PlasmaPool, Boss } from "./entities.js";
 import { PILOTS } from "./pilots.js";
+import { ExplosionFX } from "./fx.js";
 import {
-  unlockAudio, loadSfx, playMusic,
+  unlockAudio, loadSfx, playMusic, playVoice,
   sfxLaser, sfxBoost, sfxExplosion, sfxHit, sfxRing, sfxRoll,
   sfxAlarm, sfxSelect, sfxEnemyShot,
 } from "./audio.js";
@@ -44,6 +45,8 @@ const spawner = new Spawner(scene, BOUNDS);
 const particles = new ParticleBurst(scene);
 const plasma = new PlasmaPool(scene);
 const boss = new Boss(scene);
+const explosions = new ExplosionFX(scene);
+window.__fx = explosions; // debug/smoke-test breadcrumb
 
 loadSfx();
 
@@ -197,6 +200,7 @@ function startGame() {
   gameoverScreen.classList.add("hidden");
   hud.classList.remove("hidden");
   playMusic("level");
+  playVoice(PILOTS[pilotIndex].id);
 }
 
 function gameOver() {
@@ -209,9 +213,11 @@ function gameOver() {
   hud.classList.add("hidden");
   gameoverScreen.classList.remove("hidden");
   particles.burst(ship.position, 120, 30);
+  explosions.spawn(ship.position, 9);
   sfxExplosion(true);
   triggerShake();
   playMusic("title");
+  playVoice("gameover");
 }
 
 function triggerShake() {
@@ -261,8 +267,10 @@ function defeatBoss() {
     _v3a.x += (Math.random() - 0.5) * 10;
     _v3a.y += (Math.random() - 0.5) * 6;
     particles.burst(_v3a, 50, 26);
+    explosions.spawn(_v3a, 10 + Math.random() * 8);
   }
   sfxExplosion(true);
+  playVoice("bossdown");
   triggerShake();
   addScore(5000);
   boss.despawn();
@@ -318,6 +326,7 @@ function tick() {
     animateShip(ship, t, false);
     updateWorld(world, dt, 22);
     particles.update(dt, 22);
+    explosions.update(dt, 22);
     camera.position.set(0, 2.4, 10);
     camera.lookAt(0, 0, -10);
     camera.fov = 62;
@@ -400,6 +409,7 @@ function tick() {
   updateWorld(world, dt, state.speed);
   spawner.update(dt, state.speed, state.elapsed, bossBusy);
   particles.update(dt, state.speed * 0.4);
+  explosions.update(dt, state.speed * 0.4);
   plasma.update(dt);
 
   // ---------------- boss flow ----------------
@@ -408,6 +418,7 @@ function tick() {
     state.warningTimer = 3.2;
     bossWarning.classList.remove("hidden");
     sfxAlarm();
+    playVoice("warning");
   }
 
   if (state.bossPhase === "warning") {
@@ -461,6 +472,7 @@ function tick() {
           e.obj.userData.hp -= caps.laserDamage;
           if (e.obj.userData.hp <= 0) {
             particles.burst(e.obj.position, e.kind === "rock" ? 40 : 28, 20);
+            explosions.spawn(e.obj.position, e.kind === "rock" ? e.radius * 4 : 5);
             sfxExplosion(e.kind === "rock");
             addScore(e.kind === "drone" ? 120 : 60);
             spawner.remove(e);
@@ -485,6 +497,7 @@ function tick() {
       }
     } else if (d < e.radius + 1.1) {
       particles.burst(e.obj.position, 30, 16);
+      explosions.spawn(e.obj.position, 5);
       sfxExplosion(false);
       spawner.remove(e);
       damage(e.kind === "rock" ? 30 : 18);
