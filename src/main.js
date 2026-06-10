@@ -5,6 +5,7 @@ import { buildWorld, updateWorld } from "./world.js";
 import { LaserPool, Spawner, ParticleBurst, PlasmaPool, Boss } from "./entities.js";
 import { PILOTS } from "./pilots.js";
 import { ExplosionFX } from "./fx.js";
+import { RetroPost } from "./post.js";
 import {
   unlockAudio, loadSfx, playMusic, playVoice, ensureMusic,
   sfxLaser, sfxBoost, sfxExplosion, sfxHit, sfxRing, sfxRoll,
@@ -30,7 +31,25 @@ window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  retroPost.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ---------------- retro VHS/CRT mode ----------------
+const retroPost = new RetroPost(renderer);
+let retroOn = localStorage.getItem("starwing-retro") === "1";
+
+function setRetro(on) {
+  retroOn = on;
+  localStorage.setItem("starwing-retro", on ? "1" : "0");
+  document.body.classList.toggle("retro", on);
+  document.getElementById("retro-status").classList.toggle("hidden", !on);
+}
+setRetro(retroOn);
+
+function renderFrame(t) {
+  if (retroOn) retroPost.render(scene, camera, t);
+  else renderer.render(scene, camera);
+}
 
 // ------------------------------------------------------------- world & actors
 
@@ -320,6 +339,10 @@ function tick() {
   poll();
   ensureMusic();
   audioHint.classList.toggle("hidden", !audioBlocked());
+  if (input.retro) {
+    setRetro(!retroOn);
+    sfxSelect();
+  }
 
   // pad indicator
   if (input.padConnected) {
@@ -356,7 +379,7 @@ function tick() {
     camera.lookAt(0, 0, -10);
     camera.fov = 62;
     camera.updateProjectionMatrix();
-    renderer.render(scene, camera);
+    renderFrame(t);
     return;
   }
 
@@ -601,7 +624,7 @@ function tick() {
   _v3a.set(state.pos.x, state.pos.y, -120);
   projectToScreen(_v3a, reticleFar);
 
-  renderer.render(scene, camera);
+  renderFrame(t);
 }
 
 // any gesture (re)attempts the audio unlock — persistent, because a

@@ -103,6 +103,28 @@ html, body {
 .pad-on  { color: var(--laser); }
 .pad-off { color: var(--crimson); opacity: 0.75; }
 
+.hud-pad { align-items: flex-end; }
+.retro-status {
+  font-size: 11px; letter-spacing: 0.25em; font-weight: 700;
+  padding: 6px 12px;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  text-shadow: 0 0 10px rgba(255, 194, 75, 0.7);
+}
+
+/* HUD/menus degrade slightly while the VHS shader runs underneath */
+body.retro #hud,
+body.retro .screen {
+  filter: blur(0.4px) saturate(0.78) contrast(1.07);
+}
+body.retro .crt-scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 1px,
+    rgba(0, 0, 0, 0.28) 2px, rgba(0, 0, 0, 0.28) 3px
+  );
+}
+
 /* bars */
 .bar {
   width: 240px; height: 14px;

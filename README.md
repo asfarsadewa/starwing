@@ -34,6 +34,7 @@ npm run dev      # http://localhost:5173
 | Boost        | Shift             | X / LT           |
 | Barrel roll  | Q / E             | LB / RB          |
 | GERWALK      | F                 | Y                |
+| Retro VHS    | V                 | Back/Select      |
 | Start        | Enter             | Start            |
 | Pilot select | ← → + Enter       | Stick/dpad + A   |
 
@@ -84,6 +85,15 @@ tap-driven: tap a pilot to choose, tap again to launch.
   voices and acting directions lives at `public/voice/voice.manifest.json`.
 - All other SFX (explosions, hits, rings, alarm, menus) are synthesized live with
   WebAudio oscillators and filtered noise.
+
+## Retro VHS mode
+
+Tap **V** (pad: Back, touch: VHS button) to route the whole frame through a
+CRT-TV-fed-by-a-VHS-deck shader: glass curvature, a roaming tracking band that
+skews scanlines and carries dropout static, chroma bleed and smear, double ghost
+echoes, washed-out lifted blacks, tape grain, interlace flicker, head-switch
+tears, and a heavy vignette. The HUD softens to match. The preference persists
+across sessions (`localStorage`).
 
 ## Generated art
 

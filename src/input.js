@@ -35,7 +35,7 @@ export const isTouchDevice =
 const touch = {
   x: 0, y: 0,
   fire: false, boost: false,
-  tapRoll: false, tapTransform: false,
+  tapRoll: false, tapTransform: false, tapRetro: false,
 };
 
 export function initTouch() {
@@ -125,6 +125,7 @@ export function initTouch() {
   hold("tb-boost", "boost");
   tapBtn("tb-roll", "tapRoll");
   tapBtn("tb-gw", "tapTransform");
+  tapBtn("tb-vhs", "tapRetro");
 }
 
 function getPad() {
@@ -148,6 +149,7 @@ let prevFire = false;
 let prevLeft = false;
 let prevRight = false;
 let prevTransform = false;
+let prevRetro = false;
 
 export const input = {
   x: 0,            // -1 .. 1  (left/right)
@@ -161,6 +163,7 @@ export const input = {
   rollLeft: false,     // edge
   rollRight: false,    // edge
   transform: false,    // edge — gerwalk toggle
+  retro: false,        // edge — VHS/CRT mode toggle
   padConnected: false,
   padName: "",
 };
@@ -181,6 +184,7 @@ export function poll() {
   if (keys.has("KeyQ")) rollLHeld = true;
   if (keys.has("KeyE")) rollRHeld = true;
   let transformHeld = keys.has("KeyF");
+  let retroHeld = keys.has("KeyV");
 
   // --- gamepad ---
   const pad = getPad();
@@ -203,6 +207,7 @@ export function poll() {
     if (btn(4)) rollLHeld = true;                  // LB
     if (btn(5)) rollRHeld = true;                  // RB
     if (btn(3)) transformHeld = true;              // Y
+    if (btn(8)) retroHeld = true;                  // Back/Select
   }
 
   // --- touch ---
@@ -221,8 +226,10 @@ export function poll() {
   input.rollLeft = rollLHeld && !prevRollL;
   input.rollRight = (rollRHeld && !prevRollR) || touch.tapRoll;
   input.transform = (transformHeld && !prevTransform) || touch.tapTransform;
+  input.retro = (retroHeld && !prevRetro) || touch.tapRetro;
   touch.tapRoll = false;
   touch.tapTransform = false;
+  touch.tapRetro = false;
 
   // menu navigation edges from the analog/keyboard x axis (incl. dpad)
   const pad2 = getPad();
@@ -241,6 +248,7 @@ export function poll() {
   prevRollL = rollLHeld;
   prevRollR = rollRHeld;
   prevTransform = transformHeld;
+  prevRetro = retroHeld;
   prevLeft = leftHeld;
   prevRight = rightHeld;
 
