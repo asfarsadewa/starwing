@@ -8,9 +8,9 @@ thread boost rings, survive the VOIDMAW SIEGE CORE, and chase a high score.
 
 | Pilot | Ship | Profile |
 | ----- | ---- | ------- |
-| **Lt. Aria Vega** | *Swift Fang* | Balanced all-rounder. Green lasers. |
-| **Rex "Hex" Volkov** | *Needle Nine* | Fast + rapid fire, fragile shield. Amber lasers. |
-| **"Anvil" Tarka** | *Ironclad* | Heavy shield, double-damage cannons, slow. Violet lasers. |
+| **Lt. Aria Vega** | *Swift Fang* | Balanced all-rounder. Twin green bolts. |
+| **Rex "Hex" Volkov** | *Needle Nine* | Fast + rapid fire, fragile shield. Amber needle tracers. |
+| **"Anvil" Tarka** | *Ironclad* | Heavy shield, double-damage, slow. Violet plasma orbs. |
 
 Each ship is a distinct procedural silhouette (proportions, tails, engine pods,
 palette) with its own capability profile. Avatars were generated with gpt-image-2;
@@ -41,14 +41,17 @@ Gamepad API; on some browsers you must press a button once before the pad is exp
 
 ## Gameplay
 
-- **Drones** weave toward you — 120 pts each.
+- **Talon interceptors** weave and bank toward you — 120 pts each.
+- **Mantis gunships** hold mid-range and fire aimed plasma — 3 hits, 120 pts.
 - **Asteroids** take 2–3 hits — 60 pts.
 - **Gold rings** restore shield (+12) and boost (+40), and award 200 pts. Fly through them.
 - **Combo multiplier** (up to ×8) builds with consecutive kills; taking a hit resets it.
 - **Barrel roll** grants brief invulnerability.
-- **Boss**: ~75s in, the VOIDMAW SIEGE CORE warps in — dodge its aimed plasma volleys
-  (it fires faster as it takes damage) and burn it down for 5000 pts. Each defeat
-  advances the sector: faster scroll, tougher boss, new zone name.
+- **Boss**: ~75s in, the **VOIDMAW — Herald of the Forge** warps in: a spiked obsidian
+  citadel with three rotating scythe arms, four turret pods, and a glowing maw. Below
+  half HP it enters phase 2 — blades spin up, volleys quicken, and it adds radial
+  8-way maw bursts. Worth 5000 pts; each defeat advances the sector (faster scroll,
+  tougher boss, new zone name). It also talks. It is not friendly.
 - Best score persists in `localStorage`.
 
 ## Audio

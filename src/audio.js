@@ -53,6 +53,21 @@ export function unlockAudio() {
   }
 }
 
+// call every frame: if the active track stalled (autoplay race, tab refocus,
+// screen transitions), quietly restart it
+export function ensureMusic() {
+  if (!unlocked || !currentTrack) return;
+  const a = tracks[currentTrack];
+  if (a.paused) a.play().catch(() => {});
+}
+
+// debug/smoke-test breadcrumb
+window.__bgm = () => ({
+  track: currentTrack,
+  paused: currentTrack ? tracks[currentTrack].paused : null,
+  unlocked,
+});
+
 // ---------------------------------------------------------------- sampled SFX
 
 const buffers = {};
@@ -68,6 +83,8 @@ export async function loadSfx() {
     ["voice-warning", "/voice/warning.wav"],
     ["voice-bossdown", "/voice/bossdown.wav"],
     ["voice-gameover", "/voice/gameover.wav"],
+    ["voice-villain-intro", "/voice/villain-intro.wav"],
+    ["voice-villain-rage", "/voice/villain-rage.wav"],
   ];
   await Promise.all(
     files.map(async ([name, url]) => {

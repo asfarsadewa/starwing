@@ -150,6 +150,36 @@ export function buildShip(variant = {}) {
     }
   }
 
+  // --- detail pass: intakes, antenna, nav lights ---
+  for (const side of [-1, 1]) {
+    const intake = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.9), DARK);
+    intake.position.set(side * 0.52 * v.bodyW, 0.12, 0.1);
+    ship.add(intake);
+    const intakeLip = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, 0.92), ACCENT);
+    intakeLip.position.set(side * 0.52 * v.bodyW, 0.26, 0.1);
+    ship.add(intakeLip);
+  }
+
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 4), DARK);
+  antenna.position.set(0, 0.45, 1.0);
+  antenna.rotation.x = 0.4;
+  ship.add(antenna);
+
+  // wingtip nav lights: port red, starboard green (blinked in animateShip)
+  const navLights = [];
+  for (const side of [-1, 1]) {
+    const navMat = new THREE.MeshBasicMaterial({
+      color: side < 0 ? 0xff2a2a : 0x2aff5a,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const nav = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), navMat);
+    nav.position.set(side * tipX, -0.18, 0.1);
+    ship.add(nav);
+    navLights.push(nav);
+  }
+
   // --- engine ---
   const nozzleGeo = new THREE.CylinderGeometry(0.5 * v.bodyW, 0.36 * v.bodyW, 0.5, 12);
   nozzleGeo.rotateX(Math.PI / 2);
@@ -169,6 +199,14 @@ export function buildShip(variant = {}) {
   plume.position.z = 2.95;
   ship.add(plume);
 
+  // long faint after-streak behind the plume (stretches hard while boosting)
+  const trailGeo = new THREE.ConeGeometry(0.14 * v.bodyW, 5.0, 8);
+  trailGeo.rotateX(-Math.PI / 2);
+  const trail = new THREE.Mesh(trailGeo, ENGINE_GLOW.clone());
+  trail.material.opacity = 0.16;
+  trail.position.z = 4.8;
+  ship.add(trail);
+
   const engineLight = new THREE.PointLight(v.glow, 14, 9);
   engineLight.position.z = 2.4;
   ship.add(engineLight);
@@ -176,8 +214,10 @@ export function buildShip(variant = {}) {
   ship.scale.setScalar(0.62);
 
   ship.userData.plume = plume;
+  ship.userData.trail = trail;
   ship.userData.glowDisc = glowDisc;
   ship.userData.engineLight = engineLight;
+  ship.userData.navLights = navLights;
   // wingtip cannon muzzles in ship-local space (pre-scale)
   ship.userData.muzzles = [
     new THREE.Vector3(-tipX, -0.62, -1.3),
@@ -187,12 +227,19 @@ export function buildShip(variant = {}) {
   return ship;
 }
 
-// Per-frame engine flicker / boost stretch
+// Per-frame engine flicker / boost stretch / nav-light strobe
 export function animateShip(ship, t, boosting) {
-  const { plume, glowDisc, engineLight } = ship.userData;
+  const { plume, trail, glowDisc, engineLight, navLights } = ship.userData;
   const flicker = 0.85 + Math.sin(t * 47) * 0.08 + Math.sin(t * 91) * 0.07;
   const boostK = boosting ? 1.9 : 1.0;
   plume.scale.set(flicker * boostK * 0.9, flicker * boostK * 0.9, flicker * boostK);
+  trail.scale.set(boostK * 0.8, boostK * 0.8, flicker * (boosting ? 2.4 : 1));
+  trail.material.opacity = boosting ? 0.34 : 0.14;
   glowDisc.scale.setScalar(flicker * (boosting ? 1.35 : 1));
   engineLight.intensity = 14 * flicker * boostK;
+
+  // aviation strobe: short double-blink every ~1.2s
+  const phase = (t % 1.2) / 1.2;
+  const on = phase < 0.07 || (phase > 0.14 && phase < 0.21);
+  for (const nav of navLights) nav.material.opacity = on ? 1 : 0.15;
 }

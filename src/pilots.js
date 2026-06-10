@@ -18,6 +18,7 @@ export const PILOTS = [
       laserDamage: 1,
       maxShield: 100,
       laserColor: 0x58ff9b,
+      weapon: { type: "bolt", speed: 220 },
     },
     ship: {
       hull: 0xe8eef5,
@@ -47,6 +48,7 @@ export const PILOTS = [
       laserDamage: 1,
       maxShield: 70,
       laserColor: 0xffc24b,
+      weapon: { type: "needle", speed: 310 },
     },
     ship: {
       hull: 0x3a4252,
@@ -76,6 +78,7 @@ export const PILOTS = [
       laserDamage: 2,
       maxShield: 150,
       laserColor: 0xbf7dff,
+      weapon: { type: "orb", speed: 150 },
     },
     ship: {
       hull: 0x55706a,

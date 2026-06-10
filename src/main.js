@@ -6,7 +6,7 @@ import { LaserPool, Spawner, ParticleBurst, PlasmaPool, Boss } from "./entities.
 import { PILOTS } from "./pilots.js";
 import { ExplosionFX } from "./fx.js";
 import {
-  unlockAudio, loadSfx, playMusic, playVoice,
+  unlockAudio, loadSfx, playMusic, playVoice, ensureMusic,
   sfxLaser, sfxBoost, sfxExplosion, sfxHit, sfxRing, sfxRoll,
   sfxAlarm, sfxSelect, sfxEnemyShot,
 } from "./audio.js";
@@ -46,7 +46,8 @@ const particles = new ParticleBurst(scene);
 const plasma = new PlasmaPool(scene);
 const boss = new Boss(scene);
 const explosions = new ExplosionFX(scene);
-window.__fx = explosions; // debug/smoke-test breadcrumb
+window.__fx = explosions; // debug/smoke-test breadcrumbs
+window.__spawn = (kind) => spawner.spawn(kind);
 
 loadSfx();
 
@@ -168,7 +169,7 @@ function resetGame() {
   plasma.clear();
   boss.despawn();
   for (const l of lasers.pool) lasers.kill(l);
-  lasers.setColor(caps.laserColor);
+  lasers.configure({ ...caps.weapon, color: caps.laserColor });
   zoneLabel.textContent = SECTORS[0];
   bossHud.classList.add("hidden");
   bossWarning.classList.add("hidden");
@@ -295,6 +296,7 @@ function tick() {
   const t = clock.elapsedTime;
 
   poll();
+  ensureMusic();
 
   // pad indicator
   if (input.padConnected) {
@@ -400,6 +402,7 @@ function tick() {
     _v3a.copy(muzzleLocal).applyMatrix4(ship.matrixWorld);
     _v3b.set(state.pos.x, state.pos.y, -120).sub(_v3a);
     lasers.fire(_v3a, _v3b);
+    particles.burst(_v3a, 3, 4); // muzzle sparks
     sfxLaser();
   }
   lasers.update(dt);
@@ -429,10 +432,15 @@ function tick() {
       const hpScale = 1 + (state.sector - 1) * 0.5;
       boss.spawn(Math.round(60 * hpScale));
       bossHud.classList.remove("hidden");
+      playVoice("villain-intro");
     }
   } else if (state.bossPhase === "fight" && boss.active) {
-    const fired = boss.update(dt, t, ship.position, plasma);
-    if (fired) sfxEnemyShot();
+    const event = boss.update(dt, t, ship.position, plasma);
+    if (event === "volley" || event === "burst") sfxEnemyShot();
+    if (event === "phase2") {
+      playVoice("villain-rage");
+      triggerShake();
+    }
     bossFill.style.width = `${(boss.hp / boss.maxHp) * 100}%`;
     window.__bossDir = boss.group.position.x - state.pos.x; // debug/smoke-test breadcrumb
 
@@ -448,15 +456,32 @@ function tick() {
         }
       }
     }
+  }
 
-    // plasma vs ship
-    for (const p of plasma.pool) {
-      if (!p.active) continue;
-      if (p.mesh.position.distanceTo(ship.position) < 1.5) {
-        plasma.kill(p);
-        particles.burst(ship.position, 18, 12);
-        damage(14);
+  // ---------------- enemy fire (mantis gunships + boss plasma) ----------------
+  for (const e of spawner.entities) {
+    if (e.dead || e.kind !== "mantis") continue;
+    const z = e.obj.position.z;
+    if (z > -150 && z < -22) {
+      e.obj.userData.fireTimer -= dt;
+      if (e.obj.userData.fireTimer <= 0) {
+        e.obj.userData.fireTimer = 2.3 + Math.random() * 1.2;
+        e.obj.userData.muzzleFlip ^= 1;
+        const emitter = e.obj.userData.emitters[e.obj.userData.muzzleFlip];
+        const origin = emitter.getWorldPosition(_v3a);
+        plasma.fire(origin.clone(), ship.position.clone(), 48);
+        sfxEnemyShot();
       }
+    }
+  }
+
+  // plasma vs ship (boss volleys + mantis shots)
+  for (const p of plasma.pool) {
+    if (!p.active) continue;
+    if (p.mesh.position.distanceTo(ship.position) < 1.5) {
+      plasma.kill(p);
+      particles.burst(ship.position, 18, 12);
+      damage(14);
     }
   }
 
