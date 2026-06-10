@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { poll, input } from "./input.js";
-import { buildShip, animateShip } from "./ship.js";
+import { buildShip, animateShip, applyTransform } from "./ship.js";
 import { buildWorld, updateWorld } from "./world.js";
 import { LaserPool, Spawner, ParticleBurst, PlasmaPool, Boss } from "./entities.js";
 import { PILOTS } from "./pilots.js";
@@ -8,7 +8,7 @@ import { ExplosionFX } from "./fx.js";
 import {
   unlockAudio, loadSfx, playMusic, playVoice, ensureMusic,
   sfxLaser, sfxBoost, sfxExplosion, sfxHit, sfxRing, sfxRoll,
-  sfxAlarm, sfxSelect, sfxEnemyShot,
+  sfxAlarm, sfxSelect, sfxEnemyShot, sfxTransform,
 } from "./audio.js";
 
 // ------------------------------------------------------------- renderer
@@ -64,6 +64,7 @@ const shieldFill = $("shield-fill");
 const boostFill = $("boost-fill");
 const padStatus = $("pad-status");
 const alertEl = $("alert");
+const modeLabel = $("mode-label");
 const reticleFar = $("reticle-far");
 const reticleNear = $("reticle-near");
 const appEl = $("app");
@@ -138,6 +139,8 @@ const state = {
   invuln: 0,
   elapsed: 0,
   sector: 1,
+  gerwalk: false,
+  transformT: 0, // 0 = fighter, 1 = gerwalk (animated blend)
   bossAt: BOSS_AT_FIRST,
   bossPhase: null, // null | "warning" | "fight"
   warningTimer: 0,
@@ -165,6 +168,11 @@ function resetGame() {
   state.bossAt = params.has("boss") ? 6 : BOSS_AT_FIRST;
   state.bossPhase = null;
   state.wasBoosting = false;
+  state.gerwalk = false;
+  state.transformT = 0;
+  applyTransform(ship, 0);
+  modeLabel.textContent = "✈ FIGHTER";
+  modeLabel.classList.remove("gerwalk");
   spawner.clear();
   plasma.clear();
   boss.despawn();
@@ -195,6 +203,7 @@ function showSelect() {
 
 function startGame() {
   resetGame();
+  spawner.spawnV(); // first contact: a talon wing is already inbound
   state.mode = "playing";
   selectScreen.classList.add("hidden");
   titleScreen.classList.add("hidden");
@@ -341,9 +350,22 @@ function tick() {
   const caps = state.caps;
   state.elapsed += dt;
 
-  const FRICTION = 6.5;
-  state.vel.x += input.x * caps.accel * dt;
-  state.vel.y += input.y * caps.accel * dt;
+  // gerwalk toggle + transform blend
+  if (input.transform) {
+    state.gerwalk = !state.gerwalk;
+    sfxTransform(state.gerwalk);
+    modeLabel.textContent = state.gerwalk ? "⌖ GERWALK" : "✈ FIGHTER";
+    modeLabel.classList.toggle("gerwalk", state.gerwalk);
+  }
+  state.transformT = THREE.MathUtils.damp(state.transformT, state.gerwalk ? 1 : 0, 6, dt);
+  const tk = state.transformT * state.transformT * (3 - 2 * state.transformT); // smoothstep
+  applyTransform(ship, tk);
+
+  // gerwalk: hover stance — slower scroll, far snappier strafing
+  const FRICTION = 6.5 + 3.5 * tk;
+  const accel = caps.accel * (1 + 0.75 * tk);
+  state.vel.x += input.x * accel * dt;
+  state.vel.y += input.y * accel * dt;
   state.vel.multiplyScalar(Math.max(0, 1 - FRICTION * dt));
   state.pos.addScaledVector(state.vel, dt);
   state.pos.x = THREE.MathUtils.clamp(state.pos.x, -BOUNDS.x, BOUNDS.x);
@@ -358,9 +380,10 @@ function tick() {
   } else {
     state.boost = Math.min(100, state.boost + 12 * dt);
   }
-  // sectors get faster
+  // sectors get faster; gerwalk throttles the corridor way down
   const sectorK = 1 + (state.sector - 1) * 0.08;
-  const targetSpeed = (state.boosting ? caps.boostSpeed : caps.baseSpeed) * sectorK;
+  const gerwalkK = THREE.MathUtils.lerp(1, 0.5, tk);
+  const targetSpeed = (state.boosting ? caps.boostSpeed : caps.baseSpeed) * sectorK * gerwalkK;
   state.speed = THREE.MathUtils.lerp(state.speed, targetSpeed, dt * 3);
 
   // barrel roll
@@ -374,10 +397,10 @@ function tick() {
 
   state.invuln = Math.max(0, state.invuln - dt);
 
-  // apply to ship
+  // apply to ship: gerwalk holds a nose-up hover, banking flattens out
   ship.position.set(state.pos.x, state.pos.y, 0);
-  const bank = THREE.MathUtils.clamp(-state.vel.x * 0.09, -0.9, 0.9);
-  const pitch = THREE.MathUtils.clamp(state.vel.y * 0.05, -0.5, 0.5);
+  const bank = THREE.MathUtils.clamp(-state.vel.x * 0.09, -0.9, 0.9) * (1 - 0.55 * tk);
+  const pitch = THREE.MathUtils.clamp(state.vel.y * 0.05, -0.5, 0.5) + 0.3 * tk;
   ship.rotation.set(pitch, -bank * 0.35, bank + state.roll);
 
   ship.visible = state.invuln <= 0 || Math.floor(t * 20) % 2 === 0;
@@ -389,14 +412,15 @@ function tick() {
   camera.position.y = THREE.MathUtils.damp(camera.position.y, 2.4 + state.pos.y * 0.35, 5, dt);
   camera.position.z = 10;
   camera.lookAt(state.pos.x * 0.8, state.pos.y * 0.8, -20);
-  const targetFov = state.boosting ? 74 : 62;
+  const targetFov = (state.boosting ? 74 : 62) - 4 * tk;
   camera.fov = THREE.MathUtils.damp(camera.fov, targetFov, 4, dt);
   camera.updateProjectionMatrix();
 
   // ---------------- firing ----------------
   state.fireCooldown -= dt;
   if (input.fire && state.fireCooldown <= 0) {
-    state.fireCooldown = caps.fireRate;
+    // gerwalk: stabilized gun platform fires a touch faster
+    state.fireCooldown = caps.fireRate * (1 - 0.15 * tk);
     state.muzzleFlip ^= 1;
     const muzzleLocal = ship.userData.muzzles[state.muzzleFlip];
     _v3a.copy(muzzleLocal).applyMatrix4(ship.matrixWorld);
@@ -448,6 +472,7 @@ function tick() {
     for (const l of lasers.pool) {
       if (!l.active) continue;
       if (l.mesh.position.distanceTo(boss.group.position) < 6.2) {
+        lasers.flashAt(l.mesh.position, 4.5, 0.13);
         lasers.kill(l);
         particles.burst(l.mesh.position, 10, 9);
         if (boss.hit(caps.laserDamage)) {
@@ -493,6 +518,7 @@ function tick() {
       for (const l of lasers.pool) {
         if (!l.active) continue;
         if (l.mesh.position.distanceTo(e.obj.position) < e.radius + 0.6) {
+          lasers.flashAt(l.mesh.position, 3.2, 0.11);
           lasers.kill(l);
           e.obj.userData.hp -= caps.laserDamage;
           if (e.obj.userData.hp <= 0) {

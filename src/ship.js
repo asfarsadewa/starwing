@@ -180,6 +180,43 @@ export function buildShip(variant = {}) {
     navLights.push(nav);
   }
 
+  // --- GERWALK legs: tucked flush along the aft hull in fighter mode,
+  // swing down-forward into a hover stance when transformed ---
+  const legs = [];
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.position.set(side * 0.42 * v.bodyW, -0.28, 1.25); // hip pivot
+
+    const hip = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), DARK);
+    leg.add(hip);
+
+    const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.28), DARK);
+    thigh.position.y = -0.32;
+    leg.add(thigh);
+
+    const knee = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.32), ACCENT);
+    knee.position.y = -0.62;
+    leg.add(knee);
+
+    const shin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.13, 0.18, 0.8, 8), HULL
+    );
+    shin.position.y = -1.05;
+    leg.add(shin);
+
+    // foot thruster — ignites in gerwalk
+    const jet = new THREE.Mesh(new THREE.CircleGeometry(0.15, 10), ENGINE_GLOW.clone());
+    jet.material.opacity = 0;
+    jet.rotation.x = Math.PI / 2;
+    jet.position.y = -1.48;
+    leg.add(jet);
+    leg.userData.jet = jet;
+
+    leg.rotation.x = -1.45; // fighter pose: folded back along the hull
+    ship.add(leg);
+    legs.push(leg);
+  }
+
   // --- engine ---
   const nozzleGeo = new THREE.CylinderGeometry(0.5 * v.bodyW, 0.36 * v.bodyW, 0.5, 12);
   nozzleGeo.rotateX(Math.PI / 2);
@@ -218,6 +255,8 @@ export function buildShip(variant = {}) {
   ship.userData.glowDisc = glowDisc;
   ship.userData.engineLight = engineLight;
   ship.userData.navLights = navLights;
+  ship.userData.legs = legs;
+  ship.userData.transformK = 0;
   // wingtip cannon muzzles in ship-local space (pre-scale)
   ship.userData.muzzles = [
     new THREE.Vector3(-tipX, -0.62, -1.3),
@@ -227,16 +266,37 @@ export function buildShip(variant = {}) {
   return ship;
 }
 
-// Per-frame engine flicker / boost stretch / nav-light strobe
+// GERWALK blend: k = 0 fighter, 1 gerwalk. Drives leg pose + foot jets.
+export function applyTransform(ship, k) {
+  ship.userData.transformK = k;
+  for (const leg of ship.userData.legs) {
+    leg.rotation.x = THREE.MathUtils.lerp(-1.45, -0.22, k);
+  }
+}
+
+// Per-frame engine flicker / boost stretch / nav-light strobe / gerwalk jets
 export function animateShip(ship, t, boosting) {
-  const { plume, trail, glowDisc, engineLight, navLights } = ship.userData;
+  const { plume, trail, glowDisc, engineLight, navLights, legs } = ship.userData;
+  const k = ship.userData.transformK ?? 0;
   const flicker = 0.85 + Math.sin(t * 47) * 0.08 + Math.sin(t * 91) * 0.07;
   const boostK = boosting ? 1.9 : 1.0;
-  plume.scale.set(flicker * boostK * 0.9, flicker * boostK * 0.9, flicker * boostK);
-  trail.scale.set(boostK * 0.8, boostK * 0.8, flicker * (boosting ? 2.4 : 1));
-  trail.material.opacity = boosting ? 0.34 : 0.14;
+  // in gerwalk, thrust vectors to the foot jets: main plume throttles down
+  const plumeK = 1 - 0.55 * k;
+  plume.scale.set(
+    flicker * boostK * 0.9 * plumeK,
+    flicker * boostK * 0.9 * plumeK,
+    flicker * boostK * plumeK
+  );
+  trail.scale.set(boostK * 0.8, boostK * 0.8, flicker * (boosting ? 2.4 : 1) * plumeK);
+  trail.material.opacity = (boosting ? 0.34 : 0.14) * plumeK;
   glowDisc.scale.setScalar(flicker * (boosting ? 1.35 : 1));
   engineLight.intensity = 14 * flicker * boostK;
+
+  for (const leg of legs) {
+    const jet = leg.userData.jet;
+    jet.material.opacity = k * (0.55 + flicker * 0.45);
+    jet.scale.setScalar(1 + k * flicker * 0.6);
+  }
 
   // aviation strobe: short double-blink every ~1.2s
   const phase = (t % 1.2) / 1.2;

@@ -21,52 +21,117 @@ const LASER_MAT = new THREE.MeshBasicMaterial({
   depthWrite: false,
 });
 
+// halo scale per weapon style — the bolt core stays crisp, the halo sells the energy
+const WEAPON_HALO = { bolt: 2.2, needle: 1.5, orb: 3.4 };
+
 export class LaserPool {
   constructor(scene, size = 40) {
     this.scene = scene;
     this.material = LASER_MAT.clone();
     this.speed = 220;
+    this.type = "bolt";
+    this.haloTex = makeGlowTexture();
+    this.haloMat = new THREE.SpriteMaterial({
+      map: this.haloTex,
+      color: 0x58ff9b,
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
     this.pool = [];
     for (let i = 0; i < size; i++) {
       const m = new THREE.Mesh(WEAPON_GEOS.bolt, this.material);
       m.visible = false;
+      const halo = new THREE.Sprite(this.haloMat);
+      halo.scale.setScalar(WEAPON_HALO.bolt);
+      m.add(halo);
       scene.add(m);
-      this.pool.push({ mesh: m, active: false, vel: new THREE.Vector3() });
+      this.pool.push({ mesh: m, halo, active: false, vel: new THREE.Vector3(), age: 0 });
+    }
+
+    // shared flash pool: muzzle pops + impact hits
+    this.flashMat = new THREE.SpriteMaterial({
+      map: this.haloTex,
+      color: 0xffffff,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.flashes = [];
+    for (let i = 0; i < 10; i++) {
+      const s = new THREE.Sprite(this.flashMat.clone());
+      s.visible = false;
+      scene.add(s);
+      this.flashes.push({ sprite: s, life: 0, max: 0.09, size: 2 });
     }
   }
 
   // swap the whole pool to a pilot's weapon style
   configure({ type = "bolt", color = 0x58ff9b, speed = 220 } = {}) {
     const geo = WEAPON_GEOS[type] ?? WEAPON_GEOS.bolt;
+    this.type = type;
     this.material.color.set(color);
+    this.haloMat.color.set(color);
     this.speed = speed;
-    for (const l of this.pool) l.mesh.geometry = geo;
+    for (const l of this.pool) {
+      l.mesh.geometry = geo;
+      l.halo.scale.setScalar(WEAPON_HALO[type] ?? 2.2);
+    }
+    for (const f of this.flashes) f.sprite.material.color.set(color);
   }
 
   fire(origin, dir, speed = this.speed) {
     const slot = this.pool.find((l) => !l.active);
     if (!slot) return;
     slot.active = true;
+    slot.age = 0;
     slot.mesh.visible = true;
     slot.mesh.position.copy(origin);
     slot.vel.copy(dir).normalize().multiplyScalar(speed);
     slot.mesh.lookAt(origin.clone().add(dir));
+    this.flashAt(origin, 2.4, 0.07); // muzzle pop
+  }
+
+  // bright expanding flash — used for muzzle pops and impact hits
+  flashAt(position, size = 3, duration = 0.09) {
+    const f = this.flashes.find((x) => x.life <= 0) ?? this.flashes[0];
+    f.life = duration;
+    f.max = duration;
+    f.size = size;
+    f.sprite.visible = true;
+    f.sprite.position.copy(position);
   }
 
   update(dt) {
     for (const l of this.pool) {
       if (!l.active) continue;
+      l.age += dt;
       l.mesh.position.addScaledVector(l.vel, dt);
-      if (l.mesh.position.z < -WORLD_DEPTH || l.mesh.position.z > 20) {
-        l.active = false;
-        l.mesh.visible = false;
+      if (this.type === "orb") {
+        // heavy plasma breathes as it travels
+        const pulse = 1 + Math.sin(l.age * 26) * 0.18;
+        l.mesh.scale.setScalar(pulse);
       }
+      if (l.mesh.position.z < -WORLD_DEPTH || l.mesh.position.z > 20) {
+        this.kill(l);
+      }
+    }
+    for (const f of this.flashes) {
+      if (f.life <= 0) continue;
+      f.life -= dt;
+      const k = Math.max(0, f.life / f.max);
+      f.sprite.scale.setScalar(f.size * (1.6 - k * 0.6));
+      f.sprite.material.opacity = k;
+      if (f.life <= 0) f.sprite.visible = false;
     }
   }
 
   kill(l) {
     l.active = false;
     l.mesh.visible = false;
+    l.mesh.scale.setScalar(1);
   }
 }
 
@@ -523,10 +588,10 @@ export class Spawner {
     this.mantisTimer = 26; // gunships join the fight a bit later
   }
 
-  spawn(kind) {
+  spawn(kind, at = null) {
     const b = this.bounds;
-    const x = (Math.random() - 0.5) * 2 * b.x;
-    const y = (Math.random() - 0.5) * 2 * b.y;
+    const x = at ? at.x : (Math.random() - 0.5) * 2 * b.x;
+    const y = at ? at.y : (Math.random() - 0.5) * 2 * b.y;
     let obj, radius;
 
     if (kind === "drone") {
@@ -562,6 +627,16 @@ export class Spawner {
     this.entities.push({ kind, obj, radius, dead: false });
   }
 
+  // 3-talon V formation around a shared center
+  spawnV() {
+    const b = this.bounds;
+    const cx = (Math.random() - 0.5) * 1.2 * b.x;
+    const cy = (Math.random() - 0.5) * 1.2 * b.y;
+    this.spawn("drone", { x: cx, y: cy });
+    this.spawn("drone", { x: cx - 3.4, y: cy + 2.0 });
+    this.spawn("drone", { x: cx + 3.4, y: cy + 2.0 });
+  }
+
   update(dt, speed, elapsed, suppressSpawns = false) {
     if (!suppressSpawns) {
       // spawn cadence ramps up with elapsed time
@@ -569,14 +644,16 @@ export class Spawner {
 
       this.droneTimer -= dt;
       if (this.droneTimer <= 0) {
-        this.spawn("drone");
-        this.droneTimer = THREE.MathUtils.lerp(2.4, 0.7, intensity) * (0.6 + Math.random() * 0.8);
+        // sometimes a whole V wing instead of a lone fighter
+        if (Math.random() < 0.3) this.spawnV();
+        else this.spawn("drone");
+        this.droneTimer = THREE.MathUtils.lerp(1.3, 0.55, intensity) * (0.6 + Math.random() * 0.8);
       }
 
       this.rockTimer -= dt;
       if (this.rockTimer <= 0) {
         this.spawn("rock");
-        this.rockTimer = THREE.MathUtils.lerp(1.6, 0.45, intensity) * (0.6 + Math.random() * 0.8);
+        this.rockTimer = THREE.MathUtils.lerp(1.0, 0.4, intensity) * (0.6 + Math.random() * 0.8);
       }
 
       this.ringTimer -= dt;
@@ -586,9 +663,9 @@ export class Spawner {
       }
 
       this.mantisTimer -= dt;
-      if (this.mantisTimer <= 0 && elapsed > 25) {
+      if (this.mantisTimer <= 0 && elapsed > 12) {
         this.spawn("mantis");
-        this.mantisTimer = THREE.MathUtils.lerp(11, 5, intensity) * (0.7 + Math.random() * 0.6);
+        this.mantisTimer = THREE.MathUtils.lerp(8, 4.5, intensity) * (0.7 + Math.random() * 0.6);
       }
     }
 
@@ -635,10 +712,10 @@ export class Spawner {
   clear() {
     for (const e of this.entities) this.scene.remove(e.obj);
     this.entities = [];
-    this.droneTimer = 1.2;
-    this.rockTimer = 0.6;
+    this.droneTimer = 0.6; // first contact comes fast
+    this.rockTimer = 1.0;
     this.ringTimer = 5.0;
-    this.mantisTimer = 26;
+    this.mantisTimer = 13;
   }
 }
 

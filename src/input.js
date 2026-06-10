@@ -46,6 +46,7 @@ let prevRollR = false;
 let prevFire = false;
 let prevLeft = false;
 let prevRight = false;
+let prevTransform = false;
 
 export const input = {
   x: 0,            // -1 .. 1  (left/right)
@@ -58,6 +59,7 @@ export const input = {
   menuRight: false,    // edge
   rollLeft: false,     // edge
   rollRight: false,    // edge
+  transform: false,    // edge — gerwalk toggle
   padConnected: false,
   padName: "",
 };
@@ -77,6 +79,7 @@ export function poll() {
   if (keys.has("Enter")) startHeld = true;
   if (keys.has("KeyQ")) rollLHeld = true;
   if (keys.has("KeyE")) rollRHeld = true;
+  let transformHeld = keys.has("KeyF");
 
   // --- gamepad ---
   const pad = getPad();
@@ -98,6 +101,7 @@ export function poll() {
     if (btn(9)) startHeld = true;                  // Start
     if (btn(4)) rollLHeld = true;                  // LB
     if (btn(5)) rollRHeld = true;                  // RB
+    if (btn(3)) transformHeld = true;              // Y
   }
 
   input.x = Math.max(-1, Math.min(1, x));
@@ -109,6 +113,7 @@ export function poll() {
   input.firePressed = fire && !prevFire;
   input.rollLeft = rollLHeld && !prevRollL;
   input.rollRight = rollRHeld && !prevRollR;
+  input.transform = transformHeld && !prevTransform;
 
   // menu navigation edges from the analog/keyboard x axis (incl. dpad)
   const pad2 = getPad();
@@ -126,6 +131,7 @@ export function poll() {
   prevFire = fire;
   prevRollL = rollLHeld;
   prevRollR = rollRHeld;
+  prevTransform = transformHeld;
   prevLeft = leftHeld;
   prevRight = rightHeld;
 

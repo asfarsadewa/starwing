@@ -87,6 +87,7 @@ export async function loadSfx() {
   const files = [
     ["laser", "/sfx/laser.mp3"],
     ["boost", "/sfx/boost.mp3"],
+    ["transform", "/sfx/transform.mp3"],
     ["voice-vega", "/voice/bark-vega.wav"],
     ["voice-hex", "/voice/bark-hex.wav"],
     ["voice-anvil", "/voice/bark-anvil.wav"],
@@ -142,6 +143,23 @@ export function sfxLaser() {
   osc.connect(gain).connect(master);
   osc.start(t);
   osc.stop(t + 0.14);
+}
+
+export function sfxTransform(toGerwalk) {
+  // reverse transform plays slightly pitched down — feels like re-folding
+  if (playBuffer("transform", 0.85, toGerwalk ? 1 : 0.86)) return;
+  const c = ensureCtx();
+  const t = c.currentTime;
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(toGerwalk ? 180 : 420, t);
+  osc.frequency.exponentialRampToValueAtTime(toGerwalk ? 420 : 180, t + 0.4);
+  gain.gain.setValueAtTime(0.2, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  osc.connect(gain).connect(master);
+  osc.start(t);
+  osc.stop(t + 0.55);
 }
 
 export function sfxBoost() {

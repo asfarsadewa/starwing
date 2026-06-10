@@ -33,6 +33,7 @@ npm run dev      # http://localhost:5173
 | Fire lasers  | Space             | A / RT           |
 | Boost        | Shift             | X / LT           |
 | Barrel roll  | Q / E             | LB / RB          |
+| GERWALK      | F                 | Y                |
 | Start        | Enter             | Start            |
 | Pilot select | ← → + Enter       | Stick/dpad + A   |
 
@@ -47,6 +48,10 @@ Gamepad API; on some browsers you must press a button once before the pad is exp
 - **Gold rings** restore shield (+12) and boost (+40), and award 200 pts. Fly through them.
 - **Combo multiplier** (up to ×8) builds with consecutive kills; taking a hit resets it.
 - **Barrel roll** grants brief invulnerability.
+- **GERWALK mode** (à la Macross): tap F / Y to transform — legs swing down into a
+  nose-up hover stance with foot thrusters, the corridor slows to half speed, strafing
+  gets far snappier, and the guns fire slightly faster. Tap again to fold back into
+  fighter mode. Great for boss volleys and dense asteroid fields.
 - **Boss**: ~75s in, the **VOIDMAW — Herald of the Forge** warps in: a spiked obsidian
   citadel with three rotating scythe arms, four turret pods, and a glowing maw. Below
   half HP it enters phase 2 — blades spin up, volleys quicken, and it adds radial
