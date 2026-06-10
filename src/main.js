@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { poll, input } from "./input.js";
+import { poll, input, isTouchDevice, initTouch } from "./input.js";
 import { buildShip, animateShip, applyTransform } from "./ship.js";
 import { buildWorld, updateWorld } from "./world.js";
 import { LaserPool, Spawner, ParticleBurst, PlasmaPool, Boss } from "./entities.js";
@@ -8,14 +8,15 @@ import { ExplosionFX } from "./fx.js";
 import {
   unlockAudio, loadSfx, playMusic, playVoice, ensureMusic,
   sfxLaser, sfxBoost, sfxExplosion, sfxHit, sfxRing, sfxRoll,
-  sfxAlarm, sfxSelect, sfxEnemyShot, sfxTransform,
+  sfxAlarm, sfxSelect, sfxEnemyShot, sfxTransform, audioBlocked,
 } from "./audio.js";
 
 // ------------------------------------------------------------- renderer
 
 const canvas = document.getElementById("game");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// phones get a lower pixel-ratio cap to hold 60fps
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouchDevice ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
@@ -72,6 +73,14 @@ const zoneLabel = $("zone-label");
 const bossWarning = $("boss-warning");
 const bossHud = $("boss-hud");
 const bossFill = $("boss-fill");
+const audioHint = $("audio-hint");
+const touchUi = $("touch-ui");
+
+initTouch();
+
+function setTouchUi(visible) {
+  touchUi.classList.toggle("hidden", !(visible && isTouchDevice));
+}
 
 // ------------------------------------------------------------- pilot select UI
 
@@ -189,6 +198,7 @@ function showTitle() {
   selectScreen.classList.add("hidden");
   gameoverScreen.classList.add("hidden");
   hud.classList.add("hidden");
+  setTouchUi(false);
   playMusic("title");
 }
 
@@ -198,6 +208,7 @@ function showSelect() {
   gameoverScreen.classList.add("hidden");
   selectScreen.classList.remove("hidden");
   hud.classList.add("hidden");
+  setTouchUi(false);
   playMusic("title");
 }
 
@@ -209,6 +220,7 @@ function startGame() {
   titleScreen.classList.add("hidden");
   gameoverScreen.classList.add("hidden");
   hud.classList.remove("hidden");
+  setTouchUi(true);
   playMusic("level");
   playVoice(PILOTS[pilotIndex].id);
 }
@@ -222,6 +234,7 @@ function gameOver() {
   $("best-score").textContent = String(best()).padStart(6, "0");
   hud.classList.add("hidden");
   gameoverScreen.classList.remove("hidden");
+  setTouchUi(false);
   particles.burst(ship.position, 120, 30);
   explosions.spawn(ship.position, 9);
   sfxExplosion(true);
@@ -306,6 +319,7 @@ function tick() {
 
   poll();
   ensureMusic();
+  audioHint.classList.toggle("hidden", !audioBlocked());
 
   // pad indicator
   if (input.padConnected) {
@@ -575,9 +589,48 @@ function tick() {
   renderer.render(scene, camera);
 }
 
-// first interaction unlocks audio (browser autoplay policy)
-window.addEventListener("keydown", unlockAudio, { once: true });
-window.addEventListener("pointerdown", unlockAudio, { once: true });
+// any gesture (re)attempts the audio unlock — persistent, because a
+// gamepad-only player may not produce a qualifying gesture until much later
+for (const ev of ["keydown", "pointerdown", "touchstart"]) {
+  window.addEventListener(ev, unlockAudio);
+}
+
+// ---------------- tap / click navigation (mobile + mouse) ----------------
+titleScreen.addEventListener("pointerdown", () => {
+  if (state.mode !== "title") return;
+  sfxSelect();
+  showSelect();
+});
+
+gameoverScreen.addEventListener("pointerdown", () => {
+  if (state.mode === "gameover") showSelect();
+});
+
+cards.forEach((card, idx) => {
+  card.addEventListener("pointerdown", (e) => {
+    if (state.mode !== "select") return;
+    e.stopPropagation();
+    if (idx === pilotIndex) {
+      startGame(); // second tap on the chosen pilot launches
+    } else {
+      sfxSelect();
+      selectPilot(idx);
+    }
+  });
+});
+
+selectScreen.querySelector(".select-hint").addEventListener("pointerdown", () => {
+  if (state.mode === "select") startGame();
+});
+
+// touch devices get touch-appropriate prompts
+if (isTouchDevice) {
+  $("start-prompt").innerHTML = "TAP TO START";
+  selectScreen.querySelector(".select-hint").innerHTML =
+    "TAP A PILOT &nbsp;·&nbsp; TAP AGAIN TO LAUNCH";
+  gameoverScreen.querySelector(".start-prompt").innerHTML =
+    "TAP TO RETURN TO HANGAR";
+}
 
 // dev hooks: ?autostart[=pilotId] jumps into gameplay; ?select shows hangar;
 // ?boss makes the first boss arrive ~6s in

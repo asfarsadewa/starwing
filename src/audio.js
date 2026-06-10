@@ -31,7 +31,26 @@ for (const [k, a] of Object.entries(tracks)) {
 }
 
 let currentTrack = null;
-let unlocked = false;
+let unlocked = false; // a play() actually succeeded — playback is permitted
+let blocked = false;  // the most recent play() attempt was rejected by autoplay policy
+let lastAttempt = 0;
+
+function tryPlayCurrent() {
+  if (!currentTrack) return;
+  const a = tracks[currentTrack];
+  if (!a.paused) {
+    unlocked = true;
+    blocked = false;
+    return;
+  }
+  const now = performance.now();
+  if (now - lastAttempt < 400) return; // don't spam play() promises
+  lastAttempt = now;
+  a.play().then(
+    () => { unlocked = true; blocked = false; },
+    () => { blocked = true; }
+  );
+}
 
 export function playMusic(name) {
   if (currentTrack === name) return;
@@ -39,28 +58,30 @@ export function playMusic(name) {
   for (const [k, a] of Object.entries(tracks)) {
     if (k === name) {
       a.currentTime = 0;
-      if (unlocked) a.play().catch(() => {});
     } else {
       a.pause();
     }
   }
+  tryPlayCurrent();
 }
 
-// call once on first user gesture
+// call on any user gesture (and on gamepad activity — it may or may not
+// count as activation depending on the browser; harmless either way)
 export function unlockAudio() {
   ensureCtx();
-  if (!unlocked) {
-    unlocked = true;
-    if (currentTrack) tracks[currentTrack].play().catch(() => {});
-  }
+  tryPlayCurrent();
 }
 
-// call every frame: if the active track stalled (autoplay race, tab refocus,
-// screen transitions), quietly restart it
+// call every frame: retries a stalled/blocked track and resumes the SFX
+// context. Gamepad-only sessions recover here the moment any gesture lands.
 export function ensureMusic() {
-  if (!unlocked || !currentTrack) return;
-  const a = tracks[currentTrack];
-  if (a.paused) a.play().catch(() => {});
+  if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+  if (currentTrack && tracks[currentTrack].paused) tryPlayCurrent();
+}
+
+// true while the browser is refusing playback (needs a key/tap/click)
+export function audioBlocked() {
+  return blocked && !unlocked;
 }
 
 // debug/smoke-test breadcrumb
@@ -69,6 +90,7 @@ window.__bgm = () => {
   return {
     track: currentTrack,
     unlocked,
+    blocked,
     paused: a?.paused ?? null,
     readyState: a?.readyState ?? null,
     networkState: a?.networkState ?? null,

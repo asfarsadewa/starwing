@@ -40,6 +40,16 @@ npm run dev      # http://localhost:5173
 The HUD shows a live gamepad indicator (top-right). Pads are detected via the
 Gamepad API; on some browsers you must press a button once before the pad is exposed.
 
+**Audio note:** browsers only allow sound after a keyboard/mouse/touch gesture —
+gamepad buttons don't count. If you play gamepad-only, a blinking
+"🔊 press any key or tap" hint appears until one qualifying gesture lands, after
+which all audio (BGM + SFX) works for the rest of the session.
+
+**Mobile:** the game runs on phone browsers in landscape (a rotate prompt covers
+portrait). Left half of the screen is a floating virtual stick; FIRE / BOOST hold
+buttons and ROLL / GW (gerwalk) tap buttons sit under the right thumb. Menus are
+tap-driven: tap a pilot to choose, tap again to launch.
+
 ## Gameplay
 
 - **Talon interceptors** weave and bank toward you — 120 pts each.

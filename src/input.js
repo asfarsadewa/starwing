@@ -26,6 +26,107 @@ function axis(v) {
   return Math.abs(v) < DEADZONE ? 0 : (v - Math.sign(v) * DEADZONE) / (1 - DEADZONE);
 }
 
+// ---------------------------------------------------------------- touch
+
+export const isTouchDevice =
+  (typeof window !== "undefined" && "ontouchstart" in window) ||
+  (typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches);
+
+const touch = {
+  x: 0, y: 0,
+  fire: false, boost: false,
+  tapRoll: false, tapTransform: false,
+};
+
+export function initTouch() {
+  const zone = document.getElementById("stick-zone");
+  const base = document.getElementById("stick-base");
+  const nub = document.getElementById("stick-nub");
+  if (!zone) return;
+
+  const STICK_RADIUS = 56; // px of travel for full deflection
+  let stickId = null;
+  let originX = 0, originY = 0;
+
+  const setStick = (clientX, clientY) => {
+    let dx = clientX - originX;
+    let dy = clientY - originY;
+    const len = Math.hypot(dx, dy);
+    if (len > STICK_RADIUS) {
+      dx = (dx / len) * STICK_RADIUS;
+      dy = (dy / len) * STICK_RADIUS;
+    }
+    touch.x = dx / STICK_RADIUS;
+    touch.y = -dy / STICK_RADIUS; // screen-down = dive
+    nub.style.transform = `translate(${originX + dx}px, ${originY + dy}px)`;
+  };
+
+  zone.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    if (stickId !== null) return;
+    const t = e.changedTouches[0];
+    stickId = t.identifier;
+    originX = t.clientX;
+    originY = t.clientY;
+    base.classList.remove("hidden");
+    nub.classList.remove("hidden");
+    base.style.transform = `translate(${originX}px, ${originY}px)`;
+    setStick(t.clientX, t.clientY);
+  }, { passive: false });
+
+  zone.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === stickId) setStick(t.clientX, t.clientY);
+    }
+  }, { passive: false });
+
+  const endStick = (e) => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === stickId) {
+        stickId = null;
+        touch.x = 0;
+        touch.y = 0;
+        base.classList.add("hidden");
+        nub.classList.add("hidden");
+      }
+    }
+  };
+  zone.addEventListener("touchend", endStick);
+  zone.addEventListener("touchcancel", endStick);
+
+  // hold buttons (fire/boost) + tap buttons (roll/gerwalk)
+  const hold = (id, prop) => {
+    const el = document.getElementById(id);
+    el.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      touch[prop] = true;
+      el.classList.add("pressed");
+    }, { passive: false });
+    for (const ev of ["touchend", "touchcancel"]) {
+      el.addEventListener(ev, () => {
+        touch[prop] = false;
+        el.classList.remove("pressed");
+      });
+    }
+  };
+  const tapBtn = (id, prop) => {
+    const el = document.getElementById(id);
+    el.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      touch[prop] = true;
+      el.classList.add("pressed");
+    }, { passive: false });
+    for (const ev of ["touchend", "touchcancel"]) {
+      el.addEventListener(ev, () => el.classList.remove("pressed"));
+    }
+  };
+  hold("tb-fire", "fire");
+  hold("tb-boost", "boost");
+  tapBtn("tb-roll", "tapRoll");
+  tapBtn("tb-gw", "tapTransform");
+}
+
 function getPad() {
   // Some browsers never fire gamepadconnected until a button press; scan as fallback.
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -104,6 +205,12 @@ export function poll() {
     if (btn(3)) transformHeld = true;              // Y
   }
 
+  // --- touch ---
+  if (Math.abs(touch.x) > Math.abs(x)) x = touch.x;
+  if (Math.abs(touch.y) > Math.abs(y)) y = touch.y;
+  if (touch.fire) fire = true;
+  if (touch.boost) boost = true;
+
   input.x = Math.max(-1, Math.min(1, x));
   input.y = Math.max(-1, Math.min(1, y));
   input.fire = fire;
@@ -112,8 +219,10 @@ export function poll() {
   input.start = startHeld && !prevStart;
   input.firePressed = fire && !prevFire;
   input.rollLeft = rollLHeld && !prevRollL;
-  input.rollRight = rollRHeld && !prevRollR;
-  input.transform = transformHeld && !prevTransform;
+  input.rollRight = (rollRHeld && !prevRollR) || touch.tapRoll;
+  input.transform = (transformHeld && !prevTransform) || touch.tapTransform;
+  touch.tapRoll = false;
+  touch.tapTransform = false;
 
   // menu navigation edges from the analog/keyboard x axis (incl. dpad)
   const pad2 = getPad();

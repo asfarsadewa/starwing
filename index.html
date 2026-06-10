@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>STARWING // VECTOR SQUADRON</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 L26 28 L16 22 L6 28 Z' fill='%236ef3ff'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -20,6 +20,34 @@
     <!-- CRT overlay -->
     <div class="crt-scanlines"></div>
     <div class="crt-vignette"></div>
+
+    <!-- mobile: portrait orientation prompt -->
+    <div id="rotate-overlay" class="rotate-overlay">
+      <div class="rotate-icon">⟳</div>
+      <p>ROTATE TO LANDSCAPE</p>
+      <span>STARWING flies widescreen</span>
+    </div>
+
+    <!-- shown while the browser refuses audio (e.g. gamepad-only input) -->
+    <div id="audio-hint" class="audio-hint hidden">🔊 PRESS ANY KEY OR TAP FOR SOUND</div>
+
+    <!-- touch controls -->
+    <div id="touch-ui" class="touch-ui hidden">
+      <div id="stick-zone" class="stick-zone">
+        <div id="stick-base" class="stick-base hidden"></div>
+        <div id="stick-nub" class="stick-nub hidden"></div>
+      </div>
+      <div class="touch-buttons">
+        <div class="tbtn-row">
+          <div id="tb-gw" class="tbtn tbtn-small">GW</div>
+          <div id="tb-roll" class="tbtn tbtn-small">ROLL</div>
+        </div>
+        <div class="tbtn-row">
+          <div id="tb-boost" class="tbtn tbtn-med">BOOST</div>
+          <div id="tb-fire" class="tbtn tbtn-big">FIRE</div>
+        </div>
+      </div>
+    </div>
 
     <!-- In-game HUD -->
     <div id="hud" class="hidden">
