@@ -549,24 +549,91 @@ function buildMantis() {
   return g;
 }
 
+// Asteroids are hazards, so they borrow the warm side of the palette:
+// rust-toned rock pops against the cool blue space, an ember rim-glow keeps
+// the silhouette readable at range, and vertex shading gives the facets
+// light/dark contrast no matter where the scene lights happen to land.
+function makeRockTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#9b7a58";
+  ctx.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 900; i++) {
+    ctx.fillStyle =
+      Math.random() < 0.55
+        ? `rgba(38,24,18,${0.1 + Math.random() * 0.3})` // pits and scorch
+        : `rgba(255,214,160,${0.06 + Math.random() * 0.22})`; // mineral flecks
+    ctx.beginPath();
+    ctx.arc(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const ROCK_TEX = makeRockTexture();
+
 const ASTEROID_MAT = new THREE.MeshStandardMaterial({
-  color: 0x5a554e,
-  metalness: 0.05,
-  roughness: 0.95,
+  map: ROCK_TEX,
+  bumpMap: ROCK_TEX,
+  bumpScale: 0.5,
+  vertexColors: true,
+  metalness: 0.12,
+  roughness: 0.7,
   flatShading: true,
+  // faint warm floor so the unlit side never vanishes into black space
+  emissive: 0x3a1608,
+  emissiveIntensity: 0.7,
 });
+
+const ASTEROID_RIM_MAT = new THREE.MeshBasicMaterial({
+  color: 0xff7b35,
+  transparent: true,
+  opacity: 0.3,
+  side: THREE.BackSide,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+
+// subtle per-rock tints: rusty, ashen, coppery
+const ROCK_TINTS = [
+  [1.0, 0.82, 0.62],
+  [0.88, 0.88, 0.95],
+  [1.05, 0.7, 0.5],
+];
 
 function buildAsteroid() {
   const geo = new THREE.IcosahedronGeometry(1, 1);
-  // jitter vertices for a rocky look
+  // Jitter vertices for a rocky look. The geometry is non-indexed, so the
+  // offset is hashed from position — duplicated vertices shared by adjacent
+  // faces move together and the hull stays watertight.
+  const seed = Math.random() * 100;
+  const tint = ROCK_TINTS[Math.floor(Math.random() * ROCK_TINTS.length)];
   const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  const v = new THREE.Vector3();
   for (let i = 0; i < pos.count; i++) {
-    const v = new THREE.Vector3().fromBufferAttribute(pos, i);
-    v.multiplyScalar(0.78 + Math.random() * 0.5);
+    v.fromBufferAttribute(pos, i);
+    const h = Math.sin(v.x * 12.9898 + v.y * 78.233 + v.z * 37.719 + seed) * 43758.5453;
+    const n = h - Math.floor(h);
+    v.multiplyScalar(0.78 + n * 0.5);
     pos.setXYZ(i, v.x, v.y, v.z);
+    // crevices fall toward cool shadow, peaks toward warm highlight
+    colors[i * 3] = (0.5 + n * 1.1) * tint[0];
+    colors[i * 3 + 1] = (0.42 + n * 0.95) * tint[1];
+    colors[i * 3 + 2] = (0.42 + n * 0.7) * tint[2];
   }
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  return new THREE.Mesh(geo, ASTEROID_MAT);
+
+  const mesh = new THREE.Mesh(geo, ASTEROID_MAT);
+  const rim = new THREE.Mesh(geo, ASTEROID_RIM_MAT);
+  rim.scale.setScalar(1.16);
+  mesh.add(rim);
+  return mesh;
 }
 
 const RING_MAT = new THREE.MeshBasicMaterial({
