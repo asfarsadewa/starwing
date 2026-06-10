@@ -58,10 +58,14 @@ tap-driven: tap a pilot to choose, tap again to launch.
 - **Gold rings** restore shield (+12) and boost (+40), and award 200 pts. Fly through them.
 - **Combo multiplier** (up to ×8) builds with consecutive kills; taking a hit resets it.
 - **Barrel roll** grants brief invulnerability.
-- **GERWALK mode** (à la Macross): tap F / Y to transform — legs swing down into a
-  nose-up hover stance with foot thrusters, the corridor slows to half speed, strafing
-  gets far snappier, and the guns fire slightly faster. Tap again to fold back into
-  fighter mode. Great for boss volleys and dense asteroid fields.
+- **GERWALK mode** (à la Macross): tap F / Y and the ship transforms in stages —
+  full legs (hip/knee/foot) Z-fold out of the aft nacelles into a bent hover stance,
+  arms deploy from the belly and grip the gunpod (which hangs as a ventral pod in
+  fighter mode), foot thrusters ignite, the camera lifts to frame the stance, and
+  your pilot calls the change. In gerwalk all fire streams from the hand-held gunpod,
+  the corridor slows to half speed, strafing gets far snappier, and the guns cycle
+  faster. Tap again to fold everything back. Great for boss volleys and dense
+  asteroid fields.
 - **Boss**: ~75s in, the **VOIDMAW — Herald of the Forge** warps in: a spiked obsidian
   citadel with three rotating scythe arms, four turret pods, and a glowing maw. Below
   half HP it enters phase 2 — blades spin up, volleys quicken, and it adds radial

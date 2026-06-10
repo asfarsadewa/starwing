@@ -1,0 +1,18 @@
+{
+  "id": "starwing_gerwalk",
+  "language": "en",
+  "style": "Short, punchy arcade space-combat voice barks. Energetic, clean delivery, no trailing silence.",
+  "mode": "per_line",
+  "speakers": [
+    { "name": "Vega", "voice": "Kore", "style": "Composed, confident female fighter ace in her 30s. Calm authority." },
+    { "name": "Hex", "voice": "Puck", "style": "Cocky, energetic young male hotshot pilot. Grinning bravado." },
+    { "name": "Anvil", "voice": "Charon", "style": "Massive, gravelly, unshakable male veteran. Slow and heavy." },
+    { "name": "Computer", "voice": "Zephyr", "style": "Calm synthetic ship-computer announcer. Clear, measured, slightly robotic." }
+  ],
+  "lines": [
+    { "speaker": "Vega", "text": "Gerwalk configuration. Switching to hover.", "direction": "crisp combat callout", "file": "gw-vega.wav" },
+    { "speaker": "Hex", "text": "Gerwalk mode! Now we dance!", "direction": "whooping, thrilled", "file": "gw-hex.wav" },
+    { "speaker": "Anvil", "text": "Gerwalk. Digging in.", "direction": "granite, settling into a stance", "file": "gw-anvil.wav" },
+    { "speaker": "Computer", "text": "Fighter configuration restored.", "direction": "calm system confirmation", "file": "gw-fighter.wav" }
+  ]
+}

@@ -118,6 +118,10 @@ export async function loadSfx() {
     ["voice-gameover", "/voice/gameover.wav"],
     ["voice-villain-intro", "/voice/villain-intro.wav"],
     ["voice-villain-rage", "/voice/villain-rage.wav"],
+    ["voice-gw-vega", "/voice/gw-vega.wav"],
+    ["voice-gw-hex", "/voice/gw-hex.wav"],
+    ["voice-gw-anvil", "/voice/gw-anvil.wav"],
+    ["voice-gw-fighter", "/voice/gw-fighter.wav"],
   ];
   await Promise.all(
     files.map(async ([name, url]) => {

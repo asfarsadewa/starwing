@@ -368,12 +368,19 @@ function tick() {
   if (input.transform) {
     state.gerwalk = !state.gerwalk;
     sfxTransform(state.gerwalk);
+    playVoice(state.gerwalk ? `gw-${PILOTS[pilotIndex].id}` : "gw-fighter");
     modeLabel.textContent = state.gerwalk ? "⌖ GERWALK" : "✈ FIGHTER";
     modeLabel.classList.toggle("gerwalk", state.gerwalk);
   }
-  state.transformT = THREE.MathUtils.damp(state.transformT, state.gerwalk ? 1 : 0, 6, dt);
+  const prevTk = state.transformT;
+  state.transformT = THREE.MathUtils.damp(state.transformT, state.gerwalk ? 1 : 0, 4.5, dt);
   const tk = state.transformT * state.transformT * (3 - 2 * state.transformT); // smoothstep
   applyTransform(ship, tk);
+  // latch sparks when the transform locks into either configuration
+  if ((prevTk < 0.92 && state.transformT >= 0.92) || (prevTk > 0.08 && state.transformT <= 0.08)) {
+    particles.burst(ship.position, 16, 9);
+    lasers.flashAt(ship.position, 3.2, 0.12);
+  }
 
   // gerwalk: hover stance — slower scroll, far snappier strafing
   const FRICTION = 6.5 + 3.5 * tk;
@@ -411,10 +418,10 @@ function tick() {
 
   state.invuln = Math.max(0, state.invuln - dt);
 
-  // apply to ship: gerwalk holds a nose-up hover, banking flattens out
-  ship.position.set(state.pos.x, state.pos.y, 0);
+  // apply to ship: gerwalk holds a nose-up hover with a gentle bob
+  ship.position.set(state.pos.x, state.pos.y + Math.sin(t * 2.6) * 0.18 * tk, 0);
   const bank = THREE.MathUtils.clamp(-state.vel.x * 0.09, -0.9, 0.9) * (1 - 0.55 * tk);
-  const pitch = THREE.MathUtils.clamp(state.vel.y * 0.05, -0.5, 0.5) + 0.3 * tk;
+  const pitch = THREE.MathUtils.clamp(state.vel.y * 0.05, -0.5, 0.5) + 0.45 * tk;
   ship.rotation.set(pitch, -bank * 0.35, bank + state.roll);
 
   ship.visible = state.invuln <= 0 || Math.floor(t * 20) % 2 === 0;
@@ -423,7 +430,10 @@ function tick() {
 
   // ---------------- camera ----------------
   camera.position.x = THREE.MathUtils.damp(camera.position.x, state.pos.x * 0.45, 5, dt);
-  camera.position.y = THREE.MathUtils.damp(camera.position.y, 2.4 + state.pos.y * 0.35, 5, dt);
+  // gerwalk: camera lifts to look down on the hover stance — shows off the frame
+  camera.position.y = THREE.MathUtils.damp(
+    camera.position.y, 2.4 + state.pos.y * 0.35 + 1.6 * tk, 5, dt
+  );
   camera.position.z = 10;
   camera.lookAt(state.pos.x * 0.8, state.pos.y * 0.8, -20);
   const targetFov = (state.boosting ? 74 : 62) - 4 * tk;
@@ -435,9 +445,14 @@ function tick() {
   if (input.fire && state.fireCooldown <= 0) {
     // gerwalk: stabilized gun platform fires a touch faster
     state.fireCooldown = caps.fireRate * (1 - 0.15 * tk);
-    state.muzzleFlip ^= 1;
-    const muzzleLocal = ship.userData.muzzles[state.muzzleFlip];
-    _v3a.copy(muzzleLocal).applyMatrix4(ship.matrixWorld);
+    if (tk > 0.5) {
+      // gerwalk: concentrated fire from the hand-held gunpod
+      ship.userData.gunMuzzle.getWorldPosition(_v3a);
+    } else {
+      state.muzzleFlip ^= 1;
+      const muzzleLocal = ship.userData.muzzles[state.muzzleFlip];
+      _v3a.copy(muzzleLocal).applyMatrix4(ship.matrixWorld);
+    }
     _v3b.set(state.pos.x, state.pos.y, -120).sub(_v3a);
     lasers.fire(_v3a, _v3b);
     particles.burst(_v3a, 3, 4); // muzzle sparks
